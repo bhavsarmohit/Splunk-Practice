@@ -69,4 +69,22 @@ index="xxx" ("event1" OR "event2" OR "event3" OR "event4")
     isnull(end_time) OR end_time="not_available", "Not Started",
     status="Running", "Running",
     status="Completed", "Completed")
+
+
+
+index="xxx" ("event1" OR "event2" OR "event3" OR "event4")
+| eval event_name=case(
+    match(_raw, "event1"), "event1",
+    match(_raw, "event2"), "event2",
+    match(_raw, "event3"), "event3",
+    match(_raw, "event4"), "event4",
+    true(), "unknown")
+| eval status=if(isnull(END_DATE) OR END_DATE="-----", "Running", "Completed")
+| sort 0 - _time
+| dedup event_name
+| stats earliest(_time) as start_time, latest(eval(if(status="Completed", _time, null()))) as end_time, latest(status) as status by event_name
+| eval end_time=if(isnull(end_time), "not_available", strftime(end_time, "%Y-%m-%d %H:%M:%S"))
+| convert ctime(start_time) as start_time
+| table event_name start_time end_time status
+
 | table event_name start_time end_time status
