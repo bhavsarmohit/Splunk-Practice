@@ -10,3 +10,25 @@ index="xxx" ("event1" OR "event2" OR "event3" OR "event4")
 | eval end_time=if(isnull(end_time), "not_available", strftime(end_time, "%Y-%m-%d %H:%M:%S"))
 | convert ctime(start_time) as start_time
 | table event_name start_time end_time status
+
+
+
+
+index="xxx" ("event1" OR "event2")
+| eval event_name=case(
+    match(_raw, "event1"), "event1",
+    match(_raw, "event2"), "event2",
+    true(), "unknown")
+| eval status=case(
+    STATUS="Completed", "Completed",
+    STATUS="In Progress", "In Progress",
+    true(), "Not Started")
+| stats earliest(_time) as start_time latest(_time) as latest_time by event_name status
+| eval final_status=if(status="Completed", "Completed",
+                   if(status="In Progress" AND status!="Completed", "In Progress",
+                   "Not Started"))
+| eventstats max(case(status="Completed", latest_time, null())) as completed_time by event_name
+| eval end_time=if(isnull(completed_time), "not_available", strftime(completed_time, "%Y-%m-%d %H:%M:%S"))
+| eval start_time=strftime(start_time, "%Y-%m-%d %H:%M:%S")
+| table event_name start_time end_time final_status
+| dedup event_name final_status sortby -status
